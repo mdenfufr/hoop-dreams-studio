@@ -40,6 +40,7 @@ import { WellnessAverageChart } from "@/components/medical/WellnessAverageChart"
 import { BodyPainAverageChart } from "@/components/medical/BodyPainAverageChart";
 import { BodyPainCountChart } from "@/components/medical/BodyPainCountChart";
 import { RPEAverageChart } from "@/components/medical/RPEAverageChart";
+import { DailySessionsDialog } from "@/components/medical/DailySessionsDialog";
 import { BarChart3, Activity, TrendingUp, Bandage, FileDown } from "lucide-react";
 import html2canvas from "html2canvas";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -123,6 +124,7 @@ export default function MedicalStaff() {
   const [rpeDateFrom, setRpeDateFrom] = useState("");
   const [rpeDateTo, setRpeDateTo] = useState("");
   const [rpeSortOrder, setRpeSortOrder] = useState<'asc' | 'desc'>("asc");
+  const [showSessionsDialog, setShowSessionsDialog] = useState(false);
   const location = useLocation();
 
   const getCurrentState = () => {
@@ -908,6 +910,43 @@ export default function MedicalStaff() {
       setCheckinState(prev => ({ ...prev, showBodyModel: false }));
     }
   };
+
+  // Verificar y mostrar diálogo de sesiones cuando se selecciona categoría en check in/checkout
+  useEffect(() => {
+    const checkAndShowSessionsDialog = async () => {
+      if (!selectedCategory || !selectedSeason) return;
+      if (activeTab !== "checkin" && activeTab !== "checkout") return;
+
+      // Verificar permisos
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('medical_staff_access')
+        .eq('id', user.id)
+        .single();
+
+      if (!userData || userData.medical_staff_access !== 'editor') return;
+
+      // Verificar si ya se configuró hoy
+      const today = new Date().toISOString().split('T')[0];
+      const isSenior = categories?.some(cat => cat.id === selectedCategory && 'senior_season_id' in cat);
+
+      const { data: existingConfig } = await supabase
+        .from('daily_training_sessions')
+        .select('id')
+        .eq('config_date', today)
+        .eq(isSenior ? 'senior_category_id' : 'category_id', selectedCategory)
+        .maybeSingle();
+
+      if (!existingConfig) {
+        setShowSessionsDialog(true);
+      }
+    };
+
+    checkAndShowSessionsDialog();
+  }, [selectedCategory, selectedSeason, activeTab, categories]);
 
   const handleRPESubmit = (rpe: number, minutes: number, internalLoad: number) => {
     toast({
@@ -2980,6 +3019,14 @@ export default function MedicalStaff() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <DailySessionsDialog
+          open={showSessionsDialog}
+          onOpenChange={setShowSessionsDialog}
+          categoryId={selectedCategory}
+          seasonId={selectedSeason}
+          isSeniorCategory={categories?.some(cat => cat.id === selectedCategory && 'senior_season_id' in cat) || false}
+        />
         </div>
       </main>
     </div>

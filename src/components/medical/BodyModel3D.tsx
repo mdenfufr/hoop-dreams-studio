@@ -80,6 +80,53 @@ export function BodyModel3D({ playerId, onSubmit, skipPlayerIdValidation = false
 
     // Submit each body part and muscle as separate entries con descripción independiente
     try {
+      // Validar sesiones disponibles si no es staff
+      if (!skipPlayerIdValidation) {
+        const { data: player } = await supabase
+          .from('players')
+          .select('category_id, senior_category_id')
+          .eq('id', playerId)
+          .single();
+
+        if (!player) throw new Error("Jugador no encontrado");
+
+        const today = new Date().toISOString().split('T')[0];
+        const categoryId = player.senior_category_id || player.category_id;
+        const isSenior = !!player.senior_category_id;
+
+        const { data: sessionConfig } = await supabase
+          .from('daily_training_sessions')
+          .select('session_count')
+          .eq('config_date', today)
+          .eq(isSenior ? 'senior_category_id' : 'category_id', categoryId)
+          .maybeSingle();
+
+        if (!sessionConfig || sessionConfig.session_count === 0) {
+          toast({
+            variant: "destructive",
+            title: "Sin sesiones configuradas",
+            description: "No hay sesiones de entrenamiento configuradas para hoy",
+          });
+          return;
+        }
+
+        const { count } = await supabase
+          .from('body_pain_responses')
+          .select('*', { count: 'exact', head: true })
+          .eq('player_id', playerId)
+          .gte('created_at', `${today}T00:00:00`)
+          .lte('created_at', `${today}T23:59:59`);
+
+        if (count && count >= sessionConfig.session_count) {
+          toast({
+            variant: "destructive",
+            title: "Límite alcanzado",
+            description: `Ya completaste las ${sessionConfig.session_count} sesiones permitidas para hoy`,
+          });
+          return;
+        }
+      }
+
       // Process each body part
       if (selectedBodyParts.length > 0) {
         for (const bodyPart of selectedBodyParts) {
@@ -87,7 +134,7 @@ export function BodyModel3D({ playerId, onSubmit, skipPlayerIdValidation = false
             player_id: skipPlayerIdValidation ? null : playerId,
             body_part: `[Parte del cuerpo] ${bodyPart.name}`,
             pain_level: bodyPart.painLevel,
-            description: description, // Descripción específica para molestia muscular
+            description: description,
           });
           
           if (error) throw error;
@@ -101,7 +148,7 @@ export function BodyModel3D({ playerId, onSubmit, skipPlayerIdValidation = false
             player_id: skipPlayerIdValidation ? null : playerId,
             body_part: `[Músculo] ${muscle.name}`,
             pain_level: muscle.painLevel,
-            description: description, // Descripción específica para molestia muscular
+            description: description,
           });
           
           if (error) throw error;
@@ -113,7 +160,6 @@ export function BodyModel3D({ playerId, onSubmit, skipPlayerIdValidation = false
         description: "Registro guardado correctamente",
       });
 
-      // Reset form
       setSelectedMuscles([]);
       setSelectedBodyParts([]);
       setDescription("");
@@ -122,12 +168,12 @@ export function BodyModel3D({ playerId, onSubmit, skipPlayerIdValidation = false
       if (onSubmit) {
         onSubmit();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error al guardar el registro:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "No se pudo guardar el registro",
+        description: error.message || "No se pudo guardar el registro",
       });
     }
   };

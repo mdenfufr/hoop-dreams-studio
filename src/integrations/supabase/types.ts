@@ -135,6 +135,7 @@ export type Database = {
           id: string
           pain_level: number
           player_id: string | null
+          session_number: number | null
           staff_id: string | null
         }
         Insert: {
@@ -144,6 +145,7 @@ export type Database = {
           id?: string
           pain_level: number
           player_id?: string | null
+          session_number?: number | null
           staff_id?: string | null
         }
         Update: {
@@ -153,6 +155,7 @@ export type Database = {
           id?: string
           pain_level?: number
           player_id?: string | null
+          session_number?: number | null
           staff_id?: string | null
         }
         Relationships: [
@@ -386,6 +389,63 @@ export type Database = {
             columns: ["senior_season_id"]
             isOneToOne: false
             referencedRelation: "senior_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_training_sessions: {
+        Row: {
+          category_id: string | null
+          config_date: string
+          created_at: string
+          created_by: string | null
+          id: string
+          organization_id: string | null
+          season_id: string | null
+          senior_category_id: string | null
+          senior_season_id: string | null
+          session_count: number
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          config_date: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id?: string | null
+          season_id?: string | null
+          senior_category_id?: string | null
+          senior_season_id?: string | null
+          session_count: number
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          config_date?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          organization_id?: string | null
+          season_id?: string | null
+          senior_category_id?: string | null
+          senior_season_id?: string | null
+          session_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_training_sessions_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_training_sessions_senior_category_id_fkey"
+            columns: ["senior_category_id"]
+            isOneToOne: false
+            referencedRelation: "senior_categories"
             referencedColumns: ["id"]
           },
         ]
@@ -1320,6 +1380,7 @@ export type Database = {
           minutes: number
           player_id: string | null
           rpe_score: number
+          session_number: number | null
           staff_id: string | null
         }
         Insert: {
@@ -1329,6 +1390,7 @@ export type Database = {
           minutes: number
           player_id?: string | null
           rpe_score: number
+          session_number?: number | null
           staff_id?: string | null
         }
         Update: {
@@ -1338,6 +1400,7 @@ export type Database = {
           minutes?: number
           player_id?: string | null
           rpe_score?: number
+          session_number?: number | null
           staff_id?: string | null
         }
         Relationships: [
@@ -1783,6 +1846,7 @@ export type Database = {
           muscle_soreness: number | null
           player_id: string | null
           response_date: string
+          session_number: number | null
           sleep_quality: number | null
           staff_id: string | null
           stress_level: number | null
@@ -1794,6 +1858,7 @@ export type Database = {
           muscle_soreness?: number | null
           player_id?: string | null
           response_date?: string
+          session_number?: number | null
           sleep_quality?: number | null
           staff_id?: string | null
           stress_level?: number | null
@@ -1805,6 +1870,7 @@ export type Database = {
           muscle_soreness?: number | null
           player_id?: string | null
           response_date?: string
+          session_number?: number | null
           sleep_quality?: number | null
           staff_id?: string | null
           stress_level?: number | null

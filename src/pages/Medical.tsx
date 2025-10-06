@@ -20,6 +20,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { DailySessionsDialog } from "@/components/medical/DailySessionsDialog";
 import { useOrganizationTheme } from "@/hooks/use-organization-theme";
 import { getOrganizationLogo } from '@/config/organizationLogos';
 import { PreloadedImage } from "@/components/ui/preloaded-image";

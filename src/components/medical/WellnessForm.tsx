@@ -60,21 +60,62 @@ export function WellnessForm({ playerId, onSubmit, skipPlayerIdValidation = fals
     e.preventDefault();
     
     try {
-      // Verificar que el jugador esté autenticado (tenga user_id)
+      let player;
       if (!skipPlayerIdValidation) {
-        const { data: player, error: playerError } = await supabase
+        const { data: playerData, error: playerError } = await supabase
           .from('players')
-          .select('user_id')
+          .select('user_id, category_id, senior_category_id')
           .eq('id', playerId)
           .single();
 
         if (playerError) throw playerError;
 
-        if (!player.user_id) {
+        if (!playerData.user_id) {
           toast({
             variant: "destructive",
             title: "Error",
             description: "Solo los jugadores autenticados pueden registrar respuestas de wellness",
+          });
+          return;
+        }
+        player = playerData;
+      }
+
+      // Validar sesiones disponibles
+      if (!existingResponse && player) {
+        const today = new Date().toISOString().split('T')[0];
+        const categoryId = player.senior_category_id || player.category_id;
+        const isSenior = !!player.senior_category_id;
+
+        // Obtener configuración de sesiones del día
+        const { data: sessionConfig } = await supabase
+          .from('daily_training_sessions')
+          .select('session_count')
+          .eq('config_date', today)
+          .eq(isSenior ? 'senior_category_id' : 'category_id', categoryId)
+          .maybeSingle();
+
+        if (!sessionConfig || sessionConfig.session_count === 0) {
+          toast({
+            variant: "destructive",
+            title: "Sin sesiones configuradas",
+            description: "No hay sesiones de entrenamiento configuradas para hoy",
+          });
+          return;
+        }
+
+        // Contar respuestas existentes del jugador hoy
+        const { count } = await supabase
+          .from('wellness_responses')
+          .select('*', { count: 'exact', head: true })
+          .eq('player_id', playerId)
+          .eq('response_date', today);
+
+        if (count && count >= sessionConfig.session_count) {
+          toast({
+            variant: "destructive",
+            title: "Límite alcanzado",
+            description: `Ya completaste las ${sessionConfig.session_count} sesiones permitidas para hoy`,
           });
           return;
         }
@@ -83,7 +124,6 @@ export function WellnessForm({ playerId, onSubmit, skipPlayerIdValidation = fals
       let error;
       
       if (existingResponse) {
-        // Actualizar respuesta existente (edición)
         const { error: updateError } = await supabase
           .from('wellness_responses')
           .update({
@@ -96,7 +136,6 @@ export function WellnessForm({ playerId, onSubmit, skipPlayerIdValidation = fals
         
         error = updateError;
       } else {
-        // Crear nueva respuesta
         const { data: newResponse, error: insertError } = await supabase
           .from('wellness_responses')
           .insert([
@@ -113,7 +152,6 @@ export function WellnessForm({ playerId, onSubmit, skipPlayerIdValidation = fals
         
         error = insertError;
         
-        // Actualizar el estado local para reflejar que ahora existe una respuesta
         if (!error && newResponse) {
           setExistingResponse(newResponse);
         }

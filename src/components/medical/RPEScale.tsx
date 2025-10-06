@@ -41,6 +41,55 @@ export function RPEScale({ onSubmit, playerId }: RPEScaleProps) {
 
     try {
       if (playerId) {
+        // Obtener datos del jugador
+        const { data: player } = await supabase
+          .from('players')
+          .select('category_id, senior_category_id')
+          .eq('id', playerId)
+          .single();
+
+        if (!player) throw new Error("Jugador no encontrado");
+
+        // Validar sesiones disponibles
+        const today = new Date().toISOString().split('T')[0];
+        const categoryId = player.senior_category_id || player.category_id;
+        const isSenior = !!player.senior_category_id;
+
+        const { data: sessionConfig } = await supabase
+          .from('daily_training_sessions')
+          .select('session_count')
+          .eq('config_date', today)
+          .eq(isSenior ? 'senior_category_id' : 'category_id', categoryId)
+          .maybeSingle();
+
+        if (!sessionConfig || sessionConfig.session_count === 0) {
+          toast({
+            variant: "destructive",
+            title: "Sin sesiones configuradas",
+            description: "No hay sesiones de entrenamiento configuradas para hoy",
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Contar respuestas RPE del día
+        const { count } = await supabase
+          .from('rpe_responses')
+          .select('*', { count: 'exact', head: true })
+          .eq('player_id', playerId)
+          .gte('created_at', `${today}T00:00:00`)
+          .lte('created_at', `${today}T23:59:59`);
+
+        if (count && count >= sessionConfig.session_count) {
+          toast({
+            variant: "destructive",
+            title: "Límite alcanzado",
+            description: `Ya completaste las ${sessionConfig.session_count} sesiones permitidas para hoy`,
+          });
+          setIsLoading(false);
+          return;
+        }
+
         // Guardar en la base de datos
         const { error } = await supabase
           .from('rpe_responses')
@@ -58,17 +107,16 @@ export function RPEScale({ onSubmit, playerId }: RPEScaleProps) {
           description: `RPE: ${rpe}, Minutos: ${minutes}, Carga interna: ${internalLoad}`,
         });
 
-        // Reset form
         setRpe(1);
         setMinutes(0);
       }
       
       onSubmit(rpe, minutes, internalLoad);
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "No se pudo guardar la respuesta RPE",
+        description: error.message || "No se pudo guardar la respuesta RPE",
       });
     } finally {
       setIsLoading(false);
